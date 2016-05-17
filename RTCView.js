@@ -14,7 +14,7 @@ import {
 const RTCView = {
   name: 'RTCVideoView',
   propTypes: {
-    streamURL: PropTypes.number,
+    streamURL: PropTypes.string,
   },
 };
 

@@ -155,7 +155,7 @@ class RTCPeerConnection extends EventTarget(PEER_CONNECTION_EVENTS) {
 
   getStats(track, success, failure) {
     if (WebRTCModule.peerConnectionGetStats) {
-      WebRTCModule.peerConnectionGetStats(track ? track.id : -1, this._peerConnectionId, stats => {
+      WebRTCModule.peerConnectionGetStats((track && track.id) || "", this._peerConnectionId, stats => {
         success && success(stats);
       });
     } else {
