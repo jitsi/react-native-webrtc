@@ -29,7 +29,7 @@ class MediaStreamTrack {
   }
 
   _enabled: boolean;
-  id: number; // NOTE: spec wants string here
+  id: string;
   kind: string;
   label: string;
   muted: boolean;

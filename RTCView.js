@@ -5,7 +5,7 @@ var { requireNativeComponent, PropTypes } = React;
 var RTCView = {
   name: 'RTCVideoView',
   propTypes: {
-    streamURL: PropTypes.number,
+    streamURL: PropTypes.string,
   },
 };
 
