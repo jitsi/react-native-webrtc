@@ -1,15 +1,24 @@
 'use strict';
-var React = require('react-native');
-var { requireNativeComponent, PropTypes } = React;
 
-var RTCView = {
+import {
+  DeviceEventEmitter,
+  NativeModules,
+  requireNativeComponent,
+} from 'react-native';
+const WebRTCModule = NativeModules.WebRTCModule;
+
+import {
+  PropTypes,
+} from 'react';
+
+const RTCView = {
   name: 'RTCVideoView',
   propTypes: {
     streamURL: PropTypes.string,
   },
 };
 
-var v = requireNativeComponent('RTCVideoView', RTCView, {nativeOnly: {
+const v = requireNativeComponent('RTCVideoView', RTCView, {nativeOnly: {
   testID: true,
   accessibilityComponentType: true,
   renderToHardwareTextureAndroid: true,
