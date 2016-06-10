@@ -283,6 +283,7 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
                 params.putMap("dataChannel", dataChannelParams);
 
                 mDataChannels.put(dataChannelId, dataChannel);
+                registerDataChannelObserver(dataChannelId, dataChannel);
 
                 sendEvent("peerConnectionDidOpenDataChannel", params);
             }
@@ -790,6 +791,14 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
         }*/
     }
 
+    private void registerDataChannelObserver(int dcId, DataChannel dataChannel){
+        // DataChannel.registerObserver implementation does not allow to
+        // unregister, so the observer is registered here and is never
+        // unregistered
+        dataChannel.registerObserver(
+            new DataChannelObserver(dcId, dataChannel));
+    }
+
     @ReactMethod
     public void createDataChannel(final int peerConnectionId, String label, ReadableMap config) {
         PeerConnection peerConnection = mPeerConnections.get(peerConnectionId, null);
@@ -823,6 +832,7 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
             int dataChannelId = init.id;
             if (-1 != dataChannelId) {
                 mDataChannels.put(dataChannelId, dataChannel);
+                registerDataChannelObserver(dataChannelId, dataChannel);
             }
         } else {
             Log.d(TAG, "createDataChannel() peerConnection is null");
@@ -931,5 +941,58 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
                 return "closed";
         }
         return null;
+    }
+
+    class DataChannelObserver implements DataChannel.Observer {
+
+        int id;
+        DataChannel dataChannel;
+
+        DataChannelObserver(int id, DataChannel dataChannel) {
+            this.id = id;
+            this.dataChannel = dataChannel;
+        }
+
+        /** The data channel's bufferedAmount has changed. */
+        public void onBufferedAmountChange(long previousAmount) { }
+
+        /** The data channel state has changed. */
+        public void onStateChange() {
+
+            String stateStr = dataChannelStateString(dataChannel.state());
+
+            WritableMap params = Arguments.createMap();
+            params.putInt("id", id);
+            params.putString("state", stateStr);
+
+            sendEvent("dataChannelStateChanged", params);
+        }
+
+        /**
+         * A data buffer was successfully received.  NOTE: |buffer.data| will be
+         * freed once this function returns so callers who want to use the data
+         * asynchronously must make sure to copy it first.
+         */
+        public void onMessage(DataChannel.Buffer buffer) {
+
+            byte[] tmp = new byte[buffer.data.remaining()];
+            buffer.data.get(tmp);
+
+            String strData;
+            if (buffer.binary) {
+                // BASE 64 Encode
+                strData = Base64.encodeToString(tmp, Base64.NO_WRAP);
+            } else {
+                // UTF-8 encoded String
+                strData = new String(tmp, Charset.forName("UTF-8"));
+            }
+
+            WritableMap params = Arguments.createMap();
+            params.putInt("id", id);
+            params.putString("type", buffer.binary ? "binary" : "text");
+            params.putString("data", strData);
+
+            sendEvent("dataChannelReceiveMessage", params);
+        }
     }
 }
