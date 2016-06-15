@@ -323,6 +323,11 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
         return uuid;
     }
 
+    /**
+     * Includes default constraints set for the audio media type.
+     * @param audioConstraints <tt>MediaConstraints</tt> instance to be filled
+     * with the default constraints for audio media type.
+     */
     private void addDefaultAudioConstraints(MediaConstraints audioConstraints) {
         audioConstraints.optional.add(
             new MediaConstraints.KeyValuePair("googNoiseSuppression", "true"));
@@ -337,6 +342,14 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
                     "googDAEchoCancellation", "true"));
     }
 
+    /**
+     * Parses mandatory and optional "GUM" constraints described by given
+     * <tt>ReadableMap</tt>.
+     * @param constraintsMap <tt>ReadableMap</tt> which is a JavaScript object
+     * passed as the constraints argument to get user media call.
+     * @return <tt>MediaConstraints</tt> instance filled with the constraints
+     * from given map.
+     */
     private MediaConstraints parseConstraints(ReadableMap constraintsMap) {
 
         MediaConstraints mediaConstraints = new MediaConstraints();
@@ -381,6 +394,13 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
         return mediaConstraints;
     }
 
+    /**
+     * Retreives "sourceId" constraint value.
+     * @param mediaConstraints a <tt>ReadableMap</tt> which represents "GUM"
+     * constraints argument
+     * @return Integer value of "sourceId" optional "GUM" constraint or
+     * <tt>null</tt> if not specified in the given map.
+     */
     private Integer getSourceIdConstraint(ReadableMap mediaConstraints) {
         if (mediaConstraints.hasKey("optional") &&
             mediaConstraints.getType("optional") == ReadableType.Array) {
@@ -629,6 +649,12 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
         return params;
     }
 
+    /**
+     * Creates <tt>VideoCapturer</tt> for given source ID and facing mode.
+     * @param id the video source identifier(device id), optional
+     * @param facingMode 'user' or 'environment' facing mode, optional
+     * @return <tt>VideoCapturer</tt> instance obtained for given arguments.
+     */
     private VideoCapturer getVideoCapturerById(Integer id, String facingMode) {
         String name
             = id != null ? CameraEnumerationAndroid.getDeviceName(id) : null;
