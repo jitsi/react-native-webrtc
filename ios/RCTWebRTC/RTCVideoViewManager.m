@@ -27,7 +27,7 @@
 
 - (void)setCurrentRenderer:(RTCVideoTrack *)currentRenderer
 {
-  objc_setAssociatedObject(self, @selector(currentRenderer), currentRenderer, OBJC_ASSOCIATION_COPY_NONATOMIC);
+  objc_setAssociatedObject(self, @selector(currentRenderer), currentRenderer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 @end
@@ -58,10 +58,10 @@ RCT_CUSTOM_VIEW_PROPERTY(streamURL, NSNumber, RTCEAGLVideoView)
 
     if (stream.videoTracks.count) {
       RTCVideoTrack *localVideoTrack = stream.videoTracks[0];
-//      if (view.currentRenderer) {
-//        [view.currentRenderer removeRenderer:view];
-//      }
-//      view.currentRenderer = localVideoTrack;
+      if (view.currentRenderer) {
+        [view.currentRenderer removeRenderer:view];
+      }
+      view.currentRenderer = localVideoTrack;
       [localVideoTrack addRenderer:view];
     }
   }
