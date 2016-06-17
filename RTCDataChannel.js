@@ -1,13 +1,16 @@
 'use strict';
 
-const base64 = require('base64-js');
-const EventTarget = require('event-target-shim');
-const {DeviceEventEmitter, NativeModules} = require('react-native');
 
-const MessageEvent = require('./MessageEvent');
-const RTCDataChannelEvent = require('./RTCDataChannelEvent');
+import {
+  NativeModules,
+  DeviceEventEmitter,
+} from 'react-native';
+const WebRTCModule = NativeModules.WebRTCModule;
 
-const {WebRTCModule} = NativeModules;
+import base64 from 'base64-js'
+import EventTarget from 'event-target-shim'
+import MessageEvent from './MessageEvent'
+import RTCDataChannelEvent from './RTCDataChannelEvent'
 
 type RTCDataChannelInit = {
   ordered?: boolean;
@@ -25,10 +28,6 @@ type RTCDataChannelState =
   'open' |
   'closing' |
   'closed';
-
-const dataChannelIds = new Set();
-
-let nextDataChannelId = 0;
 
 const DATA_CHANNEL_EVENTS = [
   'open',
@@ -60,33 +59,25 @@ class RTCDataChannel extends EventTarget(DATA_CHANNEL_EVENTS) {
   onerror: ?Function;
   onclose: ?Function;
 
-  constructor(peerConnectionId: number, label: string, options?: ?RTCDataChannelInit) {
+  constructor(label: string, dataChannelDict: RTCDataChannelInit) {
     super();
-
-    if (options && 'id' in options) {
-      if (typeof options.id !== 'number') {
-        throw new TypeError('DataChannel id must be a number: ' + options.id);
-      }
-      if (dataChannelIds.contains(options.id)) {
-        throw new ResourceInUse('DataChannel id already in use: ' + options.id);
-      }
-      this.id = options.id;
-    } else {
-      this.id = nextDataChannelId++;
-    }
-    dataChannelIds.add(this.id);
 
     this.label = label;
 
-    if (options) {
-      this.ordered = !!options.ordered;
-      this.maxPacketLifeTime = options.maxPacketLifeTime;
-      this.maxRetransmits = options.maxRetransmits;
-      this.protocol = options.protocol || '';
-      this.negotiated = !!options.negotiated;
-    }
+    // The standard defines dataChannelDict as optional for
+    // RTCPeerConnection#createDataChannel and that is how we have implemented
+    // the method in question. However, the method will (1) allocate an
+    // RTCDataChannel.id if the caller has not specified a value and (2)
+    // pass it to RTCDataChannel's constructor via dataChannelDict.
+    // Consequently, dataChannelDict is not optional for RTCDataChannel's
+    // constructor.
+    this.id = ('id' in dataChannelDict) ? dataChannelDict.id : -1;
+    this.ordered = !!dataChannelDict.ordered;
+    this.maxPacketLifeTime = dataChannelDict.maxPacketLifeTime;
+    this.maxRetransmits = dataChannelDict.maxRetransmits;
+    this.protocol = dataChannelDict.protocol || '';
+    this.negotiated = !!dataChannelDict.negotiated;
 
-    WebRTCModule.dataChannelInit(peerConnectionId, this.id, label, options);
     this._registerEvents();
   }
 
@@ -127,8 +118,7 @@ class RTCDataChannel extends EventTarget(DATA_CHANNEL_EVENTS) {
         this.readyState = ev.state;
         if (this.readyState === 'open') {
           this.dispatchEvent(new RTCDataChannelEvent('open', {channel: this}));
-        }
-        if (this.readyState === 'close') {
+        } else if (this.readyState === 'close') {
           this.dispatchEvent(new RTCDataChannelEvent('close', {channel: this}));
           this._unregisterEvents();
         }

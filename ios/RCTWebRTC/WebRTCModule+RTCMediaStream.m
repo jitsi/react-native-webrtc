@@ -13,35 +13,7 @@
 #import "RTCPair.h"
 #import "RTCMediaConstraints.h"
 
-#import "WebRTCModule+RTCMediaStream.h"
 #import "WebRTCModule+RTCPeerConnection.h"
-
-@implementation RTCMediaStream (React)
-- (NSNumber *)reactTag {
-  return objc_getAssociatedObject(self, _cmd);
-}
-- (void)setReactTag:(NSNumber *)reactTag {
-  objc_setAssociatedObject(self, @selector(reactTag), reactTag, OBJC_ASSOCIATION_COPY_NONATOMIC);
-}
-@end
-
-@implementation RTCVideoTrack (React)
-- (NSNumber *)reactTag{
-  return objc_getAssociatedObject(self, _cmd);
-}
-- (void)setReactTag:(NSNumber *)reactTag {
-  objc_setAssociatedObject(self, @selector(reactTag), reactTag, OBJC_ASSOCIATION_COPY_NONATOMIC);
-}
-@end
-
-@implementation RTCAudioTrack (React)
-- (NSNumber *)reactTag {
-  return objc_getAssociatedObject(self, _cmd);
-}
-- (void)setReactTag:(NSNumber *)reactTag {
-  objc_setAssociatedObject(self, @selector(reactTag), reactTag, OBJC_ASSOCIATION_COPY_NONATOMIC);
-}
-@end
 
 @implementation AVCaptureDevice (React)
 
@@ -60,8 +32,6 @@
 
 RCT_EXPORT_METHOD(getUserMedia:(NSDictionary *)constraints callback:(RCTResponseSenderBlock)callback)
 {
-  NSNumber *objectID = @(self.mediaStreamId++);
-  
   NSMutableArray *tracks = [NSMutableArray array];
 
   // Initialize RTCMediaStream with a unique label in order to allow multiple
@@ -72,25 +42,30 @@ RCT_EXPORT_METHOD(getUserMedia:(NSDictionary *)constraints callback:(RCTResponse
   NSString *mediaStreamUUID = [[NSUUID UUID] UUIDString];
   RTCMediaStream *mediaStream = [self.peerConnectionFactory mediaStreamWithLabel:mediaStreamUUID];
 
-  if (constraints[@"audio"] && [constraints[@"audio"] boolValue]) {
-    RTCAudioTrack *audioTrack = [self.peerConnectionFactory audioTrackWithID:@"ARDAMSa0"];
+  // constraints.audio
+  id audioConstraints = constraints[@"audio"];
+  if (audioConstraints && [audioConstraints boolValue]) {
+    NSString *trackUUID = [[NSUUID UUID] UUIDString];
+    RTCAudioTrack *audioTrack = [self.peerConnectionFactory audioTrackWithID:trackUUID];
     [mediaStream addAudioTrack:audioTrack];
-    NSNumber *trackId = @(self.trackId++);
-    audioTrack.reactTag = trackId;
-    self.tracks[trackId] = audioTrack;
-    [tracks addObject:@{@"id": trackId, @"kind": audioTrack.kind, @"label": audioTrack.label, @"enabled": @(audioTrack.isEnabled), @"remote": @(NO), @"readyState": @"live"}];
+    self.tracks[trackUUID] = audioTrack;
+    [tracks addObject:@{@"id": trackUUID, @"kind": audioTrack.kind, @"label": audioTrack.label, @"enabled": @(audioTrack.isEnabled), @"remote": @(NO), @"readyState": @"live"}];
   }
 
-  if (constraints[@"video"]) {
+  // constraints.video
+  id videoConstraints = constraints[@"video"];
+  if (videoConstraints) {
     AVCaptureDevice *videoDevice;
-    if ([constraints[@"video"] isKindOfClass:[NSNumber class]]) {
-      if ([constraints[@"video"] boolValue]) {
+    if ([videoConstraints isKindOfClass:[NSNumber class]]) {
+      if ([videoConstraints boolValue]) {
         videoDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
       }
-    } else if ([constraints[@"video"] isKindOfClass:[NSDictionary class]]) {
-      if (constraints[@"video"][@"optional"]) {
-        if ([constraints[@"video"][@"optional"] isKindOfClass:[NSArray class]]) {
-          NSArray *options = constraints[@"video"][@"optional"];
+    } else if ([videoConstraints isKindOfClass:[NSDictionary class]]) {
+      // constraints.video.optional
+      id optionalVideoConstraints = videoConstraints[@"optional"];
+      if (optionalVideoConstraints) {
+        if ([optionalVideoConstraints isKindOfClass:[NSArray class]]) {
+          NSArray *options = optionalVideoConstraints;
           for (id item in options) {
             if ([item isKindOfClass:[NSDictionary class]]) {
               NSDictionary *dict = item;
@@ -102,26 +77,50 @@ RCT_EXPORT_METHOD(getUserMedia:(NSDictionary *)constraints callback:(RCTResponse
         }
       }
       if (!videoDevice) {
+        // constraints.video.facingMode
+        //
+        // https://www.w3.org/TR/mediacapture-streams/#def-constraint-facingMode
+        id facingMode = videoConstraints[@"facingMode"];
+        if (facingMode && [facingMode isKindOfClass:[NSString class]]) {
+          AVCaptureDevicePosition position;
+          if ([facingMode isEqualToString:@"environment"]) {
+            position = AVCaptureDevicePositionBack;
+          } else if ([facingMode isEqualToString:@"user"]) {
+            position = AVCaptureDevicePositionFront;
+          } else {
+            // If the specified facingMode value is not supported, fall back to
+            // the default video device.
+            position = AVCaptureDevicePositionUnspecified;
+          }
+          if (AVCaptureDevicePositionUnspecified != position) {
+            for (AVCaptureDevice *aVideoDevice in [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo]) {
+              if (aVideoDevice.position == position) {
+                videoDevice = aVideoDevice;
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (!videoDevice) {
         videoDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
       }
     }
-    
+
     if (videoDevice) {
       RTCVideoCapturer *capturer = [RTCVideoCapturer capturerWithDeviceName:[videoDevice localizedName]];
       RTCVideoSource *videoSource = [self.peerConnectionFactory videoSourceWithCapturer:capturer constraints:[self defaultMediaStreamConstraints]];
-      RTCVideoTrack *videoTrack = [self.peerConnectionFactory videoTrackWithID:@"ARDAMSv0" source:videoSource];
+      NSString *trackUUID = [[NSUUID UUID] UUIDString];
+      RTCVideoTrack *videoTrack = [self.peerConnectionFactory videoTrackWithID:trackUUID source:videoSource];
       [mediaStream addVideoTrack:videoTrack];
-      NSNumber *trackId = @(self.trackId++);
-      videoTrack.reactTag = trackId;
-      self.tracks[trackId] = videoTrack;
-      [tracks addObject:@{@"id": trackId, @"kind": videoTrack.kind, @"label": videoTrack.label, @"enabled": @(videoTrack.isEnabled), @"remote": @(NO), @"readyState": @"live"}];
+      self.tracks[trackUUID] = videoTrack;
+      [tracks addObject:@{@"id": trackUUID, @"kind": videoTrack.kind, @"label": videoTrack.label, @"enabled": @(videoTrack.isEnabled), @"remote": @(NO), @"readyState": @"live"}];
 
     }
   }
 
-  mediaStream.reactTag = objectID;
-  self.mediaStreams[objectID] = mediaStream;
-  callback(@[objectID, tracks]);
+  self.mediaStreams[mediaStreamUUID] = mediaStream;
+  callback(@[mediaStreamUUID, tracks]);
 }
 
 RCT_EXPORT_METHOD(mediaStreamTrackGetSources:(RCTResponseSenderBlock)callback) {
@@ -147,22 +146,16 @@ RCT_EXPORT_METHOD(mediaStreamTrackGetSources:(RCTResponseSenderBlock)callback) {
   callback(@[sources]);
 }
 
-RCT_EXPORT_METHOD(mediaStreamTrackStop:(nonnull NSNumber *)trackID)
+RCT_EXPORT_METHOD(mediaStreamTrackStop:(nonnull NSString *)trackID)
 {
   RTCMediaStreamTrack *track = self.tracks[trackID];
   if (track) {
     [track setEnabled:NO];
-    if ([track.kind isEqualToString:@"audio"]) {
-      RTCAudioTrack *audioTrack = self.tracks[trackID];
-      [self.tracks removeObjectForKey:audioTrack.reactTag];
-    } else if([track.kind isEqualToString:@"video"]) {
-      RTCVideoTrack *videoTrack = self.tracks[trackID];
-      [self.tracks removeObjectForKey:videoTrack.reactTag];
-    }
+    [self.tracks removeObjectForKey:trackID];
   }
 }
 
-RCT_EXPORT_METHOD(mediaStreamTrackSetEnabled:(nonnull NSNumber *)trackID : (BOOL *)enabled)
+RCT_EXPORT_METHOD(mediaStreamTrackSetEnabled:(nonnull NSString *)trackID : (BOOL *)enabled)
 {
   RTCMediaStreamTrack *track = self.tracks[trackID];
   if (track && track.isEnabled != enabled) {
@@ -170,34 +163,32 @@ RCT_EXPORT_METHOD(mediaStreamTrackSetEnabled:(nonnull NSNumber *)trackID : (BOOL
   }
 }
 
-RCT_EXPORT_METHOD(mediaStreamTrackRelease:(nonnull NSNumber *)streamID : (nonnull NSNumber *)trackID)
+RCT_EXPORT_METHOD(mediaStreamTrackRelease:(nonnull NSString *)streamID : (nonnull NSString *)trackID)
 {
   // what's different to mediaStreamTrackStop? only call mediaStream explicitly?
-  if (self.mediaStreams[streamID] && self.tracks[trackID]) {
-    RTCMediaStream *mediaStream = self.mediaStreams[streamID];
-    RTCMediaStreamTrack *track = self.tracks[trackID];
+  RTCMediaStream *mediaStream = self.mediaStreams[streamID];
+  RTCMediaStreamTrack *track;
+  if (mediaStream && (track = self.tracks[trackID])) {
     [track setEnabled:NO];
     if ([track.kind isEqualToString:@"audio"]) {
-      RTCAudioTrack *audioTrack = self.tracks[trackID];
-      [self.tracks removeObjectForKey:audioTrack.reactTag];
-      [mediaStream removeAudioTrack:audioTrack];
+      [self.tracks removeObjectForKey:trackID];
+      [mediaStream removeAudioTrack:(RTCAudioTrack *)track];
     } else if([track.kind isEqualToString:@"video"]) {
-      RTCVideoTrack *videoTrack = self.tracks[trackID];
-      [self.tracks removeObjectForKey:videoTrack.reactTag];
-      [mediaStream removeVideoTrack:videoTrack];
+      [self.tracks removeObjectForKey:trackID];
+      [mediaStream removeVideoTrack:(RTCVideoTrack *)track];
     }
   }
 }
 
-RCT_EXPORT_METHOD(mediaStreamRelease:(nonnull NSNumber *)streamID)
+RCT_EXPORT_METHOD(mediaStreamRelease:(nonnull NSString *)streamID)
 {
-  if (self.mediaStreams[streamID]) {
-    RTCMediaStream *mediaStream = self.mediaStreams[streamID];
+  RTCMediaStream *mediaStream = self.mediaStreams[streamID];
+  if (mediaStream) {
     for (RTCVideoTrack *track in mediaStream.videoTracks) {
-      [self.tracks removeObjectForKey:track.reactTag];
+      [self.tracks removeObjectForKey:track.label];
     }
     for (RTCAudioTrack *track in mediaStream.audioTracks) {
-      [self.tracks removeObjectForKey:track.reactTag];
+      [self.tracks removeObjectForKey:track.label];
     }
     [self.mediaStreams removeObjectForKey:streamID];
   }
