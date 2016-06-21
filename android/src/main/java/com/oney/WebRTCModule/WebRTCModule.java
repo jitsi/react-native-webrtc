@@ -422,8 +422,9 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void getUserMedia(ReadableMap constraints, Callback successCb,
-                             Callback    failureCb) {
+    public void getUserMedia(ReadableMap constraints,
+                             Callback    successCallback,
+                             Callback    errorCallback) {
         AudioTrack audioTrack = null;
         VideoTrack videoTrack = null;
         WritableArray tracks = Arguments.createArray();
@@ -483,7 +484,7 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
             }
 
             if (videoConstraints != null && videoTrack == null) {
-                failureCb.invoke("Failed to obtain video");
+                errorCallback.invoke("Failed to obtain video");
                 return;
             }
         }
@@ -534,20 +535,20 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
                 }
             }
             if (audioTrack == null && audioConstraints != null) {
-                failureCb.invoke("Failed to obtain audio");
+                errorCallback.invoke("Failed to obtain audio");
                 return;
             }
         }
 
         if (audioTrack == null && videoTrack == null) {
-            failureCb.invoke("No audio nor video media requested");
+            errorCallback.invoke("No audio nor video media requested");
             return;
         }
 
         String streamId = getNextStreamUUID();
         MediaStream mediaStream = mFactory.createLocalMediaStream(streamId);
         if (mediaStream == null) {
-            failureCb.invoke("Failed to create new media stream");
+            errorCallback.invoke("Failed to create new media stream");
             return;
         }
 
@@ -559,7 +560,7 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
         Log.d(TAG, "mMediaStreamId: " + streamId);
         mMediaStreams.put(streamId, mediaStream);
 
-        successCb.invoke(streamId, tracks);
+        successCallback.invoke(streamId, tracks);
     }
     @ReactMethod
     public void mediaStreamTrackGetSources(Callback callback){
