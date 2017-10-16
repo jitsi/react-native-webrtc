@@ -3,8 +3,10 @@ package com.oney.WebRTCModule;
 import java.io.UnsupportedEncodingException;
 import java.lang.ref.SoftReference;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import android.support.annotation.Nullable;
@@ -36,6 +38,7 @@ class PeerConnectionObserver implements PeerConnection.Observer {
         = new SparseArray<DataChannel>();
     private final int id;
     private PeerConnection peerConnection;
+    final Map<String, MediaStream> localStreams;
     final Map<String, MediaStream> remoteStreams;
     final Map<String, MediaStreamTrack> remoteTracks;
     private final WebRTCModule webRTCModule;
@@ -52,8 +55,29 @@ class PeerConnectionObserver implements PeerConnection.Observer {
     PeerConnectionObserver(WebRTCModule webRTCModule, int id) {
         this.webRTCModule = webRTCModule;
         this.id = id;
+        this.localStreams = new HashMap<String, MediaStream>();
         this.remoteStreams = new HashMap<String, MediaStream>();
         this.remoteTracks = new HashMap<String, MediaStreamTrack>();
+    }
+
+    /**
+     * Adds local <tt>MediaStream</tt> to the underlying <tt>PeerConnection</tt>
+     * @param localMediaStream a local <tt>MediaStream</tt>
+     * @return <tt>true</tt> if the operation succeeded, that is when the
+     * underlying <tt>PeerConnection</tt> exists and
+     * {@link PeerConnection#addStream} returned <tt>true</tt>.
+     */
+    boolean addStream(MediaStream localMediaStream) {
+        boolean success
+            = this.peerConnection != null
+                && this.peerConnection.addStream(localMediaStream);
+
+        if (success) {
+            this.localStreams.put(
+                localMediaStream.label(), localMediaStream);
+        }
+
+        return success;
     }
 
     PeerConnection getPeerConnection() {
@@ -65,14 +89,39 @@ class PeerConnectionObserver implements PeerConnection.Observer {
     }
 
     void close() {
-         peerConnection.close();
+        // Close the PeerConnection first to stop any events first
+        peerConnection.close();
+        // peerConnection.dispose() implementation calls MediaStream.dispose()
+        // on all local streams added to it and the app may crash if any other
+        // PeerConnection is sharing local MediaStreams. In order to prevent
+        // that all local streams have to be removed, before dispose() is
+        // called.
+        List<MediaStream> localStreamsCopy
+            = new ArrayList<>(localStreams.values());
+        for (MediaStream localStream : localStreamsCopy) {
+            this.removeStream(localStream);
+        }
+        // At this point there should be no local streams in the PeerConnection.
+        // Call dispose() to free all remaining resources held by the
+        // PeerConnection instance (RtpSenders/RtpReceivers etc.).
+        peerConnection.dispose();
 
-         remoteStreams.clear();
-         remoteTracks.clear();
+        remoteStreams.clear();
+        remoteTracks.clear();
 
-         // Unlike on iOS, we cannot unregister the DataChannel.Observer
-         // instance on Android. At least do whatever else we do on iOS.
-         dataChannels.clear();
+        // Unlike on iOS, we cannot unregister the DataChannel.Observer
+        // instance on Android. At least do whatever else we do on iOS.
+        dataChannels.clear();
+    }
+
+    /**
+     * Checks if given <tt>MediaStream</tt> belongs (has been added before and
+     * not removed) to the underlying <tt>PeerConnection</tt>.
+     * @param localMediaStream a local <tt>MediaStream</tt>
+     * @return <tt>true</tt> or <tt>false</tt>
+     */
+    boolean containsLocalStream(MediaStream localMediaStream) {
+        return this.localStreams.containsKey(localMediaStream.label());
     }
 
     void createDataChannel(String label, ReadableMap config) {
@@ -408,6 +457,24 @@ class PeerConnectionObserver implements PeerConnection.Observer {
         // unregistered
         dataChannel.registerObserver(
             new DataChannelObserver(webRTCModule, id, dcId, dataChannel));
+    }
+
+    /**
+     * Removes given local <tt>MediaStream</tt> from the underlying
+     * <tt>PeerConnection</tt>.
+     * @param localMediaStream a local <tt>MediaStream</tt>
+     *
+     * @return <tt>true</tt> if the underlying <tt>PeerConnection</tt> exists
+     * and the given <tt>MediaStream</tt> was in the local streams collection.
+     */
+    boolean removeStream(MediaStream localMediaStream) {
+        if (this.localStreams.remove(localMediaStream.label()) != null
+                && this.peerConnection != null ) {
+            this.peerConnection.removeStream(localMediaStream);
+            return true;
+        }
+
+        return false;
     }
 
     @Override

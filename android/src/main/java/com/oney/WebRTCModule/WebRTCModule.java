@@ -343,6 +343,28 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
         mPeerConnectionObservers.put(id, observer);
     }
 
+    /**
+     * Gets all the <tt>PeerConnectionObserver</tt>s which reference given
+     * local <tt>MediaStream</tt>.
+     * @param mediaStream a local <tt>MediaStream</tt>
+     *
+     * @return a <tt>List</tt> of <tt>PeerConnectionObserver</tt>s
+     */
+    private List<PeerConnectionObserver> peerConnectionsForLocalStream(
+            MediaStream mediaStream) {
+        List<PeerConnectionObserver> peerConnections
+            = new ArrayList<>(mPeerConnectionObservers.size());
+
+        for (int i=0; i < mPeerConnectionObservers.size(); i++) {
+            PeerConnectionObserver pcO = mPeerConnectionObservers.get(i);
+            if (pcO.containsLocalStream(mediaStream)) {
+                peerConnections.add(pcO);
+            }
+        }
+
+        return peerConnections;
+    }
+
     String getNextStreamUUID() {
         String uuid;
 
@@ -531,14 +553,17 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
 
             localStreams.remove(id);
 
-            // XXX MediaStream.dispose() cannot be invoked (on stream) because
-            // we do not know whether stream is still added to a PeerConnection.
-            // If it is, then MediaStream.dispose() will assert because it will
-            // expect zero references to stream but stream will have a positive
-            // number of references. Generally, PeerConnection.dispose() will
-            // dispose of the MediaStreams added to the PeerConnection but,
-            // unfortunately, we do not dispose of the PeerConnection at the
-            // time of this writing.
+            // MediaStream dispose() can be only called if it does no longer
+            // belong to any PeerConnection or the app wil crash (MediaStream
+            // counts references to it and throws an exception if disposed with
+            // any active references).
+            List<PeerConnectionObserver> pcs
+                = peerConnectionsForLocalStream(stream);
+            for (PeerConnectionObserver pcObserver : pcs) {
+                pcObserver.removeStream(stream);
+            }
+
+            stream.dispose();
         }
     }
 
@@ -666,12 +691,9 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
             Log.d(TAG, "peerConnectionAddStream() mediaStream is null");
             return;
         }
-        PeerConnection peerConnection = getPeerConnection(id);
-        if (peerConnection != null) {
-            boolean result = peerConnection.addStream(mediaStream);
-            Log.d(TAG, "addStream" + result);
-        } else {
-            Log.d(TAG, "peerConnectionAddStream() peerConnection is null");
+        PeerConnectionObserver pco = mPeerConnectionObservers.get(id);
+        if (pco == null || !pco.addStream(mediaStream)) {
+            Log.e(TAG, "peerConnectionAddStream() failed");
         }
     }
 
@@ -682,11 +704,9 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
             Log.d(TAG, "peerConnectionRemoveStream() mediaStream is null");
             return;
         }
-        PeerConnection peerConnection = getPeerConnection(id);
-        if (peerConnection != null) {
-            peerConnection.removeStream(mediaStream);
-        } else {
-            Log.d(TAG, "peerConnectionRemoveStream() peerConnection is null");
+        PeerConnectionObserver pco = mPeerConnectionObservers.get(id);
+        if (pco == null || !pco.removeStream(mediaStream)) {
+            Log.e(TAG, "peerConnectionRemoveStream() failed");
         }
     }
 
