@@ -218,7 +218,26 @@ RCT_EXPORT_METHOD(getUserMedia:(NSDictionary *)constraints
          mediaStream:(RTCMediaStream *)mediaStream {
   id videoConstraints = constraints[@"video"];
   AVCaptureDevice *videoDevice;
+  NSString *minWidth = @"1280";
+  NSString *minHeight = @"720";
+  NSString *minFrameRate = @"30";
   if ([videoConstraints isKindOfClass:[NSDictionary class]]) {
+    id mandatory = videoConstraints[@"mandatory"];
+    if (mandatory && [mandatory isKindOfClass:[NSDictionary class]]) {
+      NSDictionary *mandatoryConstraints = mandatory;
+      id minW = mandatoryConstraints[@"minWidth"];
+      id minH = mandatoryConstraints[@"minHeight"];
+      id minFs = mandatoryConstraints[@"minFrameRate"];
+      if (minW && [minH isKindOfClass:[NSNumber class]]) {
+        minWidth = [minW stringValue];
+      }
+      if (minH && [minH isKindOfClass:[NSNumber class]]) {
+        minHeight = [minH stringValue];
+      }
+      if (minFs && [minFs isKindOfClass:[NSNumber class]]) {
+        minFs = [minFs stringValue];
+      }
+    }
     // constraints.video.optional
     id optionalVideoConstraints = videoConstraints[@"optional"];
     if (optionalVideoConstraints
@@ -268,8 +287,17 @@ RCT_EXPORT_METHOD(getUserMedia:(NSDictionary *)constraints
   }
 
   if (videoDevice) {
-    // TODO: Actually use constraints...
-    RTCAVFoundationVideoSource *videoSource = [self.peerConnectionFactory avFoundationVideoSourceWithConstraints:[self defaultMediaStreamConstraints]];
+    NSDictionary *mandatoryConstraints = @{
+      kRTCMediaConstraintsMinWidth     : minWidth,
+      kRTCMediaConstraintsMinHeight    : minHeight,
+      kRTCMediaConstraintsMinFrameRate : minFrameRate
+    };
+
+    RTCMediaConstraints* constraints =
+    [[RTCMediaConstraints alloc]
+      initWithMandatoryConstraints:mandatoryConstraints
+      optionalConstraints:nil];
+    RTCAVFoundationVideoSource *videoSource = [self.peerConnectionFactory avFoundationVideoSourceWithConstraints:constraints];
     // FIXME The effort above to find a videoDevice value which satisfies the
     // specified constraints was pretty much wasted. Salvage facingMode for
     // starters because it is kind of a common and hence important feature on
