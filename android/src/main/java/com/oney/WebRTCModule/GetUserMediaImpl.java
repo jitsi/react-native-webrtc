@@ -39,7 +39,7 @@ class GetUserMediaImpl {
     private static final String TAG = WebRTCModule.TAG;
 
     /**
-     * The {@link CamearEventsHandler} used with
+     * The {@link CameraEventsHandler} used with
      * {@link CameraEnumerator#createCapturer}. Cached because the
      * implementation does not do anything but logging unspecific to the camera
      * device's name anyway.
@@ -87,7 +87,7 @@ class GetUserMediaImpl {
 
     /**
      * Converts the value of a specific {@code MediaStreamConstraints} key to
-     * the respective {@link Manifest#permission} value.
+     * the respective {@link Manifest.permission} value.
      *
      * @param constraints the {@code MediaStreamConstraints} within which the
      * specified {@code key} may be associated with the value to convert
@@ -127,7 +127,7 @@ class GetUserMediaImpl {
      * @param facingMode the facing of the requested video source such as
      * {@code user} and {@code environment}. If {@code null}, "user" is
      * presumed.
-     * @return a {@code VideoCapturer} satisfying th {@code facingMode} or
+     * @return a {@code VideoCapturer} satisfying the {@code facingMode} or
      * {@code sourceId} constraint
      */
     private VideoCapturer createVideoCapturer(
@@ -162,22 +162,39 @@ class GetUserMediaImpl {
         } else {
             isFrontFacing = !facingMode.equals("environment");
         }
+
+        String deviceName = null;
+        String message = null;
         for (String name : deviceNames) {
             if (enumerator.isFrontFacing(name) == isFrontFacing) {
-                VideoCapturer videoCapturer
-                    = enumerator.createCapturer(name, cameraEventsHandler);
-                String message
-                    = "Create " + facingMode + "-facing camera " + name;
-                if (videoCapturer != null) {
-                    Log.d(TAG, message + " succeeded");
-                    return videoCapturer;
-                } else {
-                    Log.d(TAG, message + " failed");
-                }
+                deviceName = name;
+                message = "Create " + facingMode + "-facing camera ";
+                break;
             }
         }
 
-        // should we fallback to available camera automatically?
+        // Fallback to any available camera.
+        if (deviceName == null && deviceNames.length > 0) {
+            Log.d(TAG, "No " + facingMode + "-facing camera detected. " +
+                    "Falling back to any available camera.");
+            deviceName = deviceNames[0];
+        }
+
+        if (deviceName != null) {
+            VideoCapturer videoCapturer
+                    = enumerator.createCapturer(deviceName, cameraEventsHandler);
+            if (message == null) {
+                message = "Create camera ";
+            }
+            if (videoCapturer != null) {
+                Log.d(TAG, message + deviceName + " succeeded");
+                return videoCapturer;
+            } else {
+                Log.d(TAG, message + deviceName + " failed");
+            }
+        }
+
+        Log.w(TAG, "Unable to identify a suitable camera.");
         return null;
     }
 
