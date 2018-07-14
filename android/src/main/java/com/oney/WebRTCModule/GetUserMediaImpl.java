@@ -276,7 +276,7 @@ class GetUserMediaImpl {
         Context context = getReactApplicationContext();
 
         VideoCaptureController videoCaptureController
-            = new VideoCaptureController(context, constraints);
+            = new VideoCaptureController(context, videoConstraintsMap);
         VideoCapturer videoCapturer = videoCaptureController.getVideoCapturer();
         if (videoCapturer == null) {
             return null;
