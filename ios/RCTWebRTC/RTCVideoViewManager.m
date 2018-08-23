@@ -10,6 +10,7 @@
 
 #import <WebRTC/RTCEAGLVideoView.h>
 #import <WebRTC/RTCMediaStream.h>
+#import <WebRTC/RTCMTLVideoView.h>
 #import <WebRTC/RTCVideoTrack.h>
 
 #import "RTCVideoViewManager.h"
@@ -42,7 +43,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  * Implements an equivalent of {@code HTMLVideoElement} i.e. Web's video
  * element.
  */
-@interface RTCVideoView : UIView <RTCEAGLVideoViewDelegate>
+@interface RTCVideoView : UIView <RTCVideoViewDelegate>
 
 /**
  * The indicator which determines whether this {@code RTCVideoView} is to mirror
@@ -60,9 +61,8 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
 @property (nonatomic) RTCVideoViewObjectFit objectFit;
 
 /**
- * The {@link RTCEAGLVideoView} which implements the actual
- * {@link RTCVideoRenderer} of this instance and which this instance fits within
- * itself so that the rendered video preserves the aspect ratio of
+ * The {@link RRTCVideoRenderer} which implements the actual rendering and which
+ * fits within this view so that the rendered video preserves the aspect ratio of
  * {@link #_videoSize}.
  */
 @property (nonatomic, readonly) __kindof UIView<RTCVideoRenderer> *videoView;
@@ -97,13 +97,12 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
 
   if (videoTrack) {
     if (self.window) {
-      // TODO RTCVideoTrack's addRenderer implementation has an NSAssert1 that
-      // makes sure that the specified RTCVideoRenderer is not added multiple
-      // times (without intervening removals, of course). It may (or may not) be
-      // wise to explicitly make sure here that we will not hit that NSAssert1.
       [videoTrack addRenderer:self.videoView];
     } else {
       [videoTrack removeRenderer:self.videoView];
+      _videoSize.height = 0;
+      _videoSize.width = 0;
+      [self setNeedsLayout];
     }
   }
 }
@@ -116,9 +115,15 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  */
 - (instancetype)initWithFrame:(CGRect)frame {
   if (self = [super initWithFrame:frame]) {
-    RTCEAGLVideoView *subview = [[RTCEAGLVideoView alloc] init];
+#if defined(RTC_SUPPORTS_METAL)
+    RTCMTLVideoView *subview = [[RTCMTLVideoView alloc] initWithFrame:CGRectZero];
     subview.delegate = self;
     _videoView = subview;
+#else
+    RTCEAGLVideoView *subview = [[RTCEAGLVideoView alloc] initWithFrame:CGRectZero];
+    subview.delegate = self;
+    _videoView = subview;
+#endif
 
     _videoSize.height = 0;
     _videoSize.width = 0;
@@ -142,10 +147,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
   CGFloat width = _videoSize.width, height = _videoSize.height;
   CGRect newValue;
   if (width <= 0 || height <= 0) {
-    newValue.origin.x = 0;
-    newValue.origin.y = 0;
-    newValue.size.width = 0;
-    newValue.size.height = 0;
+    newValue = self.bounds;
   } else if (RTCVideoViewObjectFitCover == self.objectFit) { // cover
     newValue = self.bounds;
     // Is there a real need to scale subview?
@@ -234,6 +236,9 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
   if (oldValue != videoTrack) {
     if (oldValue) {
       [oldValue removeRenderer:self.videoView];
+      _videoSize.height = 0;
+      _videoSize.width = 0;
+      [self setNeedsLayout];
     }
 
     _videoTrack = videoTrack;
@@ -250,11 +255,11 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
   }
 }
 
-#pragma mark - RTCEAGLVideoViewDelegate methods
+#pragma mark - RTCVideoViewDelegate methods
 
 /**
- * Notifies this {@link RTCEAGLVideoViewDelegate} that a specific
- * {@link RTCEAGLVideoView} had the size of the video (frames) it renders
+ * Notifies this {@link RTCVideoViewDelegate} that a specific
+ * {@link RTCVideoRenderer} had the size of the video (frames) it renders
  * changed.
  *
  * @param videoView The {@code RTCVideoRenderer} which had the size of the video
