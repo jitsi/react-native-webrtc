@@ -11,21 +11,22 @@ A WebRTC module for React Native.
 
 ## Comunity
 
-Everyone is welcome to you our [Discourse community](https://react-native-webrtc.discourse.group/) to discuss any React Native and WebRTC related topics.
+Everyone is welcome to our [Discourse community](https://react-native-webrtc.discourse.group/) to discuss any React Native and WebRTC related topics.
 
 ## WebRTC Revision
 
 | react-native-webrtc | WebRTC Version | arch(ios) | arch(android)  | npm published | note | additional picks |
 | :-------------: | :-------------:| :-----: | :-----: | :-----: | :-----: | :-----: |
+| 1.69.1 | [M69](https://chromium.googlesource.com/external/webrtc/+/branch-heads/69)<br>[commit](https://chromium.googlesource.com/external/webrtc/+/9110a54a60d9e0c69128338fc250319ddb751b5a)<br>(24012)<br>(+16-24348) | x86_64<br>i386<br>armv7<br>arm64 | armeabi-v7a<br>arm64-v8a<br>x86<br>x86_64 | :heavy_check_mark: |  |  |
 | 1.69.0 | [M69](https://chromium.googlesource.com/external/webrtc/+/branch-heads/69)<br>[commit](https://chromium.googlesource.com/external/webrtc/+/9110a54a60d9e0c69128338fc250319ddb751b5a)<br>(24012)<br>(+16-24348) | x86_64<br>i386<br>armv7<br>arm64 | armeabi-v7a<br>x86 | :heavy_check_mark: |  |  |
 | master | [M69](https://chromium.googlesource.com/external/webrtc/+/branch-heads/69)<br>[commit](https://chromium.googlesource.com/external/webrtc/+/9110a54a60d9e0c69128338fc250319ddb751b5a)<br>(24012)<br>(+16-24348) | x86_64<br>i386<br>armv7<br>arm64 | armeabi-v7a<br>x86 | :warning: | test me plz |  |
 
-Please see [wiki page](https://github.com/oney/react-native-webrtc/wiki) about revision history.
+Please see [wiki page](https://github.com/react-native-webrtc/react-native-webrtc/wiki) about revision history.
 
 ## Installation
 
-- [iOS](https://github.com/oney/react-native-webrtc/blob/master/Documentation/iOSInstallation.md)
-- [Android](https://github.com/oney/react-native-webrtc/blob/master/Documentation/AndroidInstallation.md)
+- [iOS](https://github.com/react-native-webrtc/react-native-webrtc/blob/master/Documentation/iOSInstallation.md)
+- [Android](https://github.com/react-native-webrtc/react-native-webrtc/blob/master/Documentation/AndroidInstallation.md)
 
 ## Usage
 Now, you can use WebRTC like in browser.
@@ -126,3 +127,5 @@ Use [react-native-callkeep](https://github.com/wazo-pbx/react-native-callkeep) t
 ## Sponsorship
 This repository doesn't have a plan to get sponsorship.(This can be discussed afterwards by collaborators). If you would like to pay bounty to fix some bugs or get some features, be free to open a issue that adds `[BOUNTY]` category in title. Add other bounty website link like [this](https://www.bountysource.com) will be better.
 
+## Creator
+This repository is originally created by [Wan Huang Yang](https://github.com/oney/).
